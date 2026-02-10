@@ -35,6 +35,19 @@
             --term-prompt: #00ff41;
         }
 
+                [data-theme="purple"] {
+            --neon-color: #bc13fe;
+            --neon-dim: #4b0082;
+            --glass-border: 1px solid rgba(188, 19, 254, 0.3);
+            --term-prompt: #bc13fe;
+        }
+
+        [data-theme="gold"] {
+            --neon-color: #ffd700;
+            --neon-dim: #8b6508;
+            --glass-border: 1px solid rgba(255, 215, 0, 0.3);
+            --term-prompt: #ffd700;
+        }
         [data-theme="blue"] {
             --neon-color: #00e5ff;
             --neon-dim: #004d55;
@@ -307,6 +320,8 @@
         .progress-fill { height: 100%; background: var(--neon-color); width: 0%; transition: width 1.5s ease-in-out; box-shadow: 0 0 10px var(--neon-color); }
 
         /* Contact */
+        <div class="desktop-icon" onclick="openWindow('notepad-window')"><i class="fas fa-edit"></i><span>Notepad</span></div>
+        <div class="desktop-icon" onclick="printOutput('Accessing system directory...'); openWindow('explorer-window');"><i class="fas fa-hdd"></i><span>System</span></div>
         .contact-link {
             display: flex; align-items: center; padding: 12px; margin-bottom: 10px;
             border: 1px solid #333; text-decoration: none; color: var(--text-main); transition: 0.3s; cursor: pointer;
@@ -335,6 +350,27 @@
 
         @media (min-width: 769px) { .ascii-art { font-size: 12px; line-height: 12px; } }
 
+        .explorer-item {
+            display: flex; flex-direction: column; align-items: center; gap: 8px;
+            padding: 10px; cursor: pointer; border: 1px solid transparent; transition: 0.2s;
+            text-align: center;
+        }
+        .explorer-item:hover {
+            background: rgba(255, 255, 255, 0.05); border: var(--glass-border);
+        }
+        .explorer-item i { font-size: 2rem; color: var(--neon-color); }
+        .explorer-item span { font-size: 0.75rem; color: var(--text-main); word-break: break-all; }
+        @keyframes window-glitch {
+            0% { transform: translate(0); opacity: 1; }
+            20% { transform: translate(-2px, 2px); opacity: 0.8; }
+            40% { transform: translate(-2px, -2px); opacity: 1; }
+            60% { transform: translate(2px, 2px); opacity: 0.8; }
+            80% { transform: translate(2px, -2px); opacity: 1; }
+            100% { transform: translate(0); opacity: 1; }
+        }
+        .window.opening {
+            animation: window-glitch 0.2s ease-out;
+        }
     </style>
 </head>
 <body data-theme="red">
@@ -356,6 +392,8 @@
         <div class="desktop-icon" onclick="openWindow('certs-window')"><i class="fas fa-certificate"></i><span>Certs</span></div>
         <div class="desktop-icon" onclick="openWindow('ctf-window')"><i class="fas fa-flag"></i><span>CTF Stats</span></div>
         <div class="desktop-icon" onclick="openWindow('contact-window')"><i class="fas fa-address-card"></i><span>Contact</span></div>
+        <div class="desktop-icon" onclick="openWindow('notepad-window')"><i class="fas fa-edit"></i><span>Notepad</span></div>
+        <div class="desktop-icon" onclick="printOutput('Accessing system directory...'); openWindow('explorer-window');"><i class="fas fa-hdd"></i><span>System</span></div>
     </div>
 
     <!-- TASKBAR -->
@@ -636,7 +674,6 @@
         const desktop = document.getElementById('desktop');
         const taskbar = document.getElementById('taskbar');
         
-        // Boot Sequence
         const bootMessages = [
             "INITIALIZING HARSHITH-OS KERNEL...",
             "LOADING MODULES: [NET] [SEC] [CRYPTO]...",
@@ -645,11 +682,14 @@
             "STARTING GRAPHICAL INTERFACE..."
         ];
 
-        /* --- TYPEWRITER EFFECT HELPER --- */
+        let virtualFS = ['about.txt', 'roadmap.txt', 'skills.bin', 'projects/', 'certs/', 'contact.exe'];
+        let zIndexCounter = 100;
+        let isMobile = window.innerWidth < 769;
+
+        /* --- TYPEWRITER EFFECT --- */
         function typeWriter(text, element, speed = 20, callback) {
             let i = 0;
-            element.innerHTML = ""; // Clear existing
-            // Create a blinking cursor
+            element.innerHTML = "";
             const cursor = document.createElement('span');
             cursor.innerText = '█';
             cursor.style.animation = 'blink 1s infinite';
@@ -671,28 +711,20 @@
         /* --- BOOT LOGIC --- */
         async function runBootSequence() {
             const hasBooted = sessionStorage.getItem('harshith_os_booted');
-            
             if (hasBooted) {
-                // Skip boot
                 bootScreen.style.display = 'none';
                 desktop.style.opacity = '1';
                 taskbar.style.opacity = '1';
                 openWindow('terminal-window');
             } else {
-                // Run boot with delay
                 for (const msg of bootMessages) {
                     const p = document.createElement('div');
                     p.className = 'log-line';
                     bootLog.appendChild(p);
-                    // Use a promise to wait for typing to finish
-                    await new Promise(resolve => {
-                        typeWriter(`> ${msg}`, p, 15, resolve);
-                    });
-                    // Small pause between lines
+                    await new Promise(resolve => typeWriter(`> ${msg}`, p, 15, resolve));
                     await new Promise(r => setTimeout(r, 100));
                     bootLog.scrollTop = bootLog.scrollHeight;
                 }
-
                 setTimeout(() => {
                     bootScreen.style.display = 'none';
                     desktop.style.opacity = '1';
@@ -703,180 +735,212 @@
             }
         }
 
-        /* --- MATRIX RAIN EFFECT --- */
+        /* --- MATRIX EFFECT --- */
         function initMatrix() {
-            const canvas = document.getElementById('matrix-canvas');
-            const ctx = canvas.getContext('2d');
-            
+            const canvas = document.getElementById("matrix-canvas");
+            const ctx = canvas.getContext("2d");
+            const fontSize = 14;
+            const drops = [];
+            const chars = "01ABCDEFGHIJKLMNOPQRSTUVWXYZ@#$%^&*";
+
             function resize() {
                 canvas.width = window.innerWidth;
                 canvas.height = window.innerHeight;
+                const newColumns = Math.floor(canvas.width / fontSize);
+                while (drops.length < newColumns) drops.push(Math.random() * -100);
             }
-            window.addEventListener('resize', resize);
+            window.addEventListener("resize", resize);
             resize();
 
-            const chars = '01ABCDEFGHIJKLMNOPQRSTUVWXYZ@#$%^&*';
-            const drops = [];
-            const fontSize = 14;
-            const columns = canvas.width / fontSize;
-
-            for(let i = 0; i < columns; i++) drops[i] = 1;
-
             function draw() {
-                ctx.fillStyle = 'rgba(0, 0, 0, 0.05)';
+                ctx.fillStyle = "rgba(0, 0, 0, 0.05)";
                 ctx.fillRect(0, 0, canvas.width, canvas.height);
-
                 const style = getComputedStyle(document.body);
-                ctx.fillStyle = style.getPropertyValue('--neon-color') || '#ff003c';
-                ctx.font = fontSize + 'px monospace';
+                const color = style.getPropertyValue("--neon-color") || "#ff003c";
+                ctx.font = fontSize + "px monospace";
 
                 for(let i = 0; i < drops.length; i++) {
                     const text = chars[Math.floor(Math.random() * chars.length)];
+                    ctx.shadowBlur = 12;
+                    ctx.shadowColor = color;
+                    ctx.fillStyle = color;
+                    if (Math.random() > 0.98) { ctx.fillStyle = "#fff"; ctx.shadowBlur = 15; }
                     ctx.fillText(text, i * fontSize, drops[i] * fontSize);
-
-                    if(drops[i] * fontSize > canvas.height && Math.random() > 0.975) {
-                        drops[i] = 0;
-                    }
+                    ctx.shadowBlur = 0;
+                    if(drops[i] * fontSize > canvas.height && Math.random() > 0.975) drops[i] = 0;
                     drops[i]++;
                 }
             }
-            setInterval(draw, 33);
+            setInterval(draw, 35);
         }
 
         /* --- SOUND ENGINE --- */
         let audioCtx = null;
         function getAudioContext() {
             if (!audioCtx) {
-                try {
-                    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-                } catch(e) {
-                    console.warn('Web Audio API not supported');
-                    return null;
-                }
+                try { audioCtx = new (window.AudioContext || window.webkitAudioContext)(); }
+                catch(e) { return null; }
             }
             return audioCtx;
         }
-        function playSound(type = 'keypress') {
+        function playSound(type = "keypress") {
             const ctx = getAudioContext();
             if (!ctx) return;
-            if (ctx.state === 'suspended') ctx.resume();
-            
+            if (ctx.state === "suspended") ctx.resume();
             const osc = ctx.createOscillator();
             const gain = ctx.createGain();
             
-            if (type === 'error') {
-                osc.type = 'sawtooth';
+            if (type === "error") {
+                osc.type = "sawtooth";
                 osc.frequency.setValueAtTime(150, ctx.currentTime);
                 osc.frequency.exponentialRampToValueAtTime(50, ctx.currentTime + 0.1);
-            } else {
-                osc.type = 'square';
+            } else if (type === "open") {
+                osc.type = "sine";
+                osc.frequency.setValueAtTime(400, ctx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(800, ctx.currentTime + 0.1);
+            } else if (type === "close") {
+                osc.type = "sine";
                 osc.frequency.setValueAtTime(800, ctx.currentTime);
-                gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.05);
+                osc.frequency.exponentialRampToValueAtTime(400, ctx.currentTime + 0.1);
+            } else if (type === "minimize") {
+                osc.type = "sine";
+                osc.frequency.setValueAtTime(600, ctx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(300, ctx.currentTime + 0.1);
+            } else {
+                osc.type = "square";
+                osc.frequency.setValueAtTime(800, ctx.currentTime);
             }
-            
-            osc.connect(gain);
-            gain.connect(ctx.destination);
-            osc.start();
-            osc.stop(ctx.currentTime + (type === 'error' ? 0.2 : 0.05));
+            gain.gain.setValueAtTime(0.05, ctx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.1);
+            osc.connect(gain); gain.connect(ctx.destination);
+            osc.start(); osc.stop(ctx.currentTime + 0.1);
         }
 
-        /* --- WINDOW MANAGEMENT SYSTEM --- */
-        let zIndexCounter = 100;
-        let isMobile = window.innerWidth <= 768;
+        /* --- DRAGGABLE ICONS --- */
+        function initDraggableIcons() {
+            const icons = document.querySelectorAll(".desktop-icon");
+            icons.forEach(icon => {
+                let isDragging = false;
+                let currentX = 0, currentY = 0, initialX, initialY, xOffset = 0, yOffset = 0;
+                const dragStart = (e) => {
+                    initialX = e.clientX - xOffset; initialY = e.clientY - yOffset;
+                    isDragging = true; icon.style.transition = "none"; icon.style.zIndex = 1000;
+                    document.addEventListener("mousemove", drag); document.addEventListener("mouseup", dragEnd);
+                };
+                const drag = (e) => {
+                    if (isDragging) {
+                        e.preventDefault();
+                        currentX = e.clientX - initialX; currentY = e.clientY - initialY;
+                        xOffset = currentX; yOffset = currentY;
+                        icon.style.transform = `translate3d(${currentX}px, ${currentY}px, 0)`;
+                    }
+                };
+                const dragEnd = () => {
+                    isDragging = false; icon.style.zIndex = "";
+                    document.removeEventListener("mousemove", drag); document.removeEventListener("mouseup", dragEnd);
+                };
+                icon.addEventListener("mousedown", dragStart);
+            });
+        }
 
-        window.addEventListener('resize', () => {
-            isMobile = window.innerWidth <= 768;
+        /* --- TASKBAR & CLOCK --- */
+        function updateClock() {
+            const clock = document.getElementById("taskbar-clock");
+            if (clock) clock.innerText = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false });
+        }
+        setInterval(updateClock, 1000);
+
+        function updateTaskbar(id, title, isOpen) {
+            const taskIcons = document.getElementById("taskbar-icons");
+            if (!taskIcons) return;
+            let taskItem = document.getElementById(`task-${id}`);
+            if (isOpen) {
+                if (!taskItem) {
+                    taskItem = document.createElement("div"); taskItem.id = `task-${id}`;
+                    taskItem.className = "task-item active"; taskItem.innerHTML = title;
+                    taskItem.onclick = () => {
+                        const win = document.getElementById(id);
+                        if (win.style.display === "none") openWindow(id);
+                        else if (win.classList.contains("active-window")) minimizeWindow(id);
+                        else bringToFront(win);
+                    };
+                    taskIcons.appendChild(taskItem);
+                } else taskItem.classList.add("active");
+            } else if (taskItem) taskItem.remove();
+        }
+
+        function toggleStartMenu() {
+            const menu = document.getElementById("start-menu");
+            if (menu) menu.style.display = (menu.style.display === "flex") ? "none" : "flex";
+        }
+
+        function rebootSystem() {
+            bootLog.innerHTML = "<div class='log-line'>> SHUTTING DOWN...</div>";
+            bootScreen.style.display = "flex";
+            sessionStorage.removeItem("harshith_os_booted");
+            setTimeout(() => location.reload(), 1000);
+        }
+
+        document.addEventListener("mousedown", (e) => {
+            const menu = document.getElementById("start-menu");
+            const startBtn = document.querySelector(".start-btn");
+            if (menu && menu.style.display === "flex" && !menu.contains(e.target) && !startBtn.contains(e.target)) menu.style.display = "none";
         });
 
-        // Taskbar Management
-        function updateTaskbar(id, title, isOpen) {
-            let taskItem = document.getElementById(`task-${id}`);
-            
-            if (isOpen && !taskItem) {
-                // Create new taskbar item
-                taskItem = document.createElement('div');
-                taskItem.id = `task-${id}`;
-                taskItem.className = 'task-item';
-                taskItem.innerHTML = `<i class="fas fa-window-maximize"></i> ${title}`;
-                taskItem.onclick = () => toggleMinimize(id);
-                taskbar.appendChild(taskItem);
-            } else if (!isOpen && taskItem) {
-                // Remove taskbar item
-                taskItem.remove();
-            }
-            
-            // Highlight active
-            document.querySelectorAll('.task-item').forEach(item => item.classList.remove('active'));
-            if (isOpen && taskItem) taskItem.classList.add('active');
+        /* --- EXPLORER --- */
+        function renderExplorer() {
+            const container = document.getElementById("explorer-content");
+            if (!container) return;
+            container.innerHTML = "";
+            virtualFS.forEach(file => {
+                const item = document.createElement("div");
+                item.className = "explorer-item";
+                const isDir = file.endsWith("/");
+                const icon = isDir ? "fa-folder" : (file.endsWith(".exe") ? "fa-cog" : "fa-file-alt");
+                item.innerHTML = `<i class="fas ${icon}"></i><span>${file}</span>`;
+                item.onclick = () => {
+                    if (file === "about.txt") openWindow("about-window");
+                    else if (file.endsWith(".txt")) {
+                        openWindow("notepad-window");
+                        document.getElementById("notepad-textarea").value = `Editing ${file}...\n\n[Contents of ${file} would appear here]`;
+                    } else if (isDir) printOutput(`Browsing ${file} is restricted.`);
+                };
+                container.appendChild(item);
+            });
         }
 
-        function toggleMinimize(id) {
-            const win = document.getElementById(id);
-            // If it's effectively hidden (has closing class or display none)
-            if (win.style.display === 'none' || win.classList.contains('closing')) {
-                openWindow(id);
-            } else {
-                if (win.classList.contains('active-window')) {
-                    minimizeWindow(id);
-                } else {
-                    bringToFront(win);
-                }
-            }
-        }
-
+        /* --- WINDOW MANAGEMENT --- */
         function openWindow(id) {
+            playSound("open");
             const win = document.getElementById(id);
             if (!win) return;
-            
+            if (id === 'explorer-window') renderExplorer();
             const title = win.querySelector('.window-title').innerText;
             updateTaskbar(id, title, true);
-
-            // FORCE RESET STATE: Ensure it's visible no matter what
-            win.style.display = 'flex';
-            
-            // Remove closing class immediately to stop any fade-out
-            win.classList.remove('closing');
-            
-            // Force Reflow/Repaint to ensure the browser realizes we are opening
-            void win.offsetWidth; 
-
-            // Add open class for animation and opacity=1
-            win.classList.add('open');
-            
-            // Positioning Logic (Run only if off-screen or unset)
+            win.style.display = 'flex'; win.classList.remove('closing');
+            void win.offsetWidth; win.classList.add('open');
+            win.classList.add('opening'); setTimeout(() => win.classList.remove('opening'), 300);
             if (!isMobile && !win.style.top) {
                 const offset = Math.floor(Math.random() * 50);
-                win.style.top = (100 + offset) + 'px';
-                win.style.left = (100 + offset) + 'px';
+                win.style.top = (100 + offset) + 'px'; win.style.left = (100 + offset) + 'px';
             }
-            
             bringToFront(win);
         }
 
         function closeWindow(id) {
+            playSound("close");
             const win = document.getElementById(id);
             if (!win) return;
-            
-            // Remove from taskbar
             updateTaskbar(id, null, false);
-
-            win.classList.remove('open');
-            win.classList.add('closing');
-            setTimeout(() => {
-                win.style.display = 'none';
-                win.classList.remove('closing');
-            }, 150);
+            win.classList.remove('open'); win.classList.add('closing');
+            setTimeout(() => { win.style.display = 'none'; win.classList.remove('closing'); }, 150);
         }
 
         function minimizeWindow(id) {
+            playSound("minimize");
             const win = document.getElementById(id);
-            win.classList.remove('open');
-            win.classList.add('closing');
-            setTimeout(() => {
-                win.style.display = 'none';
-                win.classList.remove('closing');
-            }, 150);
-            // Keep in taskbar, but remove active state
+            win.classList.remove('open'); win.classList.add('closing');
+            setTimeout(() => { win.style.display = 'none'; win.classList.remove('closing'); }, 150);
             const taskItem = document.getElementById(`task-${id}`);
             if (taskItem) taskItem.classList.remove('active');
         }
@@ -884,15 +948,11 @@
         function maximizeWindow(id) {
             const win = document.getElementById(id);
             if (win.style.width === '100%') {
-                win.style.width = '600px';
-                win.style.height = '400px';
-                win.style.top = '100px';
-                win.style.left = '100px';
+                win.style.width = '600px'; win.style.height = '400px';
+                win.style.top = '100px'; win.style.left = '100px';
             } else {
-                win.style.width = '100%';
-                win.style.height = 'calc(100% - 40px)'; // Account for taskbar
-                win.style.top = '0';
-                win.style.left = '0';
+                win.style.width = '100%'; win.style.height = 'calc(100% - 40px)';
+                win.style.top = '0'; win.style.left = '0';
             }
             bringToFront(win);
         }
@@ -900,290 +960,93 @@
         function bringToFront(win) {
             document.querySelectorAll('.window').forEach(w => w.classList.remove('active-window'));
             document.querySelectorAll('.task-item').forEach(t => t.classList.remove('active'));
-            
-            win.classList.add('active-window');
-            win.style.zIndex = ++zIndexCounter;
-            
+            win.classList.add('active-window'); win.style.zIndex = ++zIndexCounter;
             const taskItem = document.getElementById(`task-${win.id}`);
             if (taskItem) taskItem.classList.add('active');
         }
 
-        // Setup Dragging & Clicking
         document.querySelectorAll('.window').forEach(win => {
             win.addEventListener('mousedown', () => bringToFront(win));
-            const header = win.querySelector('.window-header');
-            header.addEventListener('mousedown', e => {
-                if (isMobile) return;
-                e.preventDefault();
-                let startX = e.clientX;
-                let startY = e.clientY;
-                let startLeft = win.offsetLeft;
-                let startTop = win.offsetTop;
-
-                function onMouseMove(e) {
-                    let newLeft = startLeft + e.clientX - startX;
-                    let newTop = startTop + e.clientY - startY;
-                    win.style.left = newLeft + 'px';
-                    win.style.top = newTop + 'px';
-                }
-                function onMouseUp() {
-                    document.removeEventListener('mousemove', onMouseMove);
-                    document.removeEventListener('mouseup', onMouseUp);
-                }
-                document.addEventListener('mousemove', onMouseMove);
-                document.addEventListener('mouseup', onMouseUp);
+            win.querySelector('.window-header').addEventListener('mousedown', e => {
+                if (isMobile) return; e.preventDefault();
+                let startX = e.clientX, startY = e.clientY, startLeft = win.offsetLeft, startTop = win.offsetTop;
+                function onMouseMove(e) { win.style.left = (startLeft + e.clientX - startX) + 'px'; win.style.top = (startTop + e.clientY - startY) + 'px'; }
+                function onMouseUp() { document.removeEventListener('mousemove', onMouseMove); document.removeEventListener('mouseup', onMouseUp); }
+                document.addEventListener('mousemove', onMouseMove); document.addEventListener('mouseup', onMouseUp);
             });
         });
 
-        /* --- TERMINAL LOGIC --- */
+        /* --- TERMINAL --- */
         const cmdInput = document.getElementById('cmd-input');
         const termOut = document.getElementById('terminal-output');
         const terminalBody = document.getElementById('terminal-body');
-        
-        let commandHistory = [];
-        let historyIndex = -1;
+        let commandHistory = [], historyIndex = -1;
 
-        const ROADMAP = `
-<span style="color:var(--neon-color)">=== PROJECT ROADMAP [PLANNED] ===</span>
-
-<span style="color:#2ecc71">[LINUX + AUTOMATION]</span>
-• Auto Recon Framework (HarshRecon)
-• Linux Privilege Escalation Scanner
-• SSH Brute-force Automation
-• System Hardening Script
-• Custom Bash Shell (Mini)
-
-<span style="color:#3498db">[NETWORKING & AD]</span>
-• Active Directory Attack Lab
-• AD Enumeration Toolkit
-• Python Port Scanner v2
-• Packet Sniffer & MITM
-• DHCP Starvation Simulator
-
-<span style="color:#e67e22">[WEB APP SECURITY]</span>
-• Custom Burp Suite Extension
-• SQLi Exploitation Toolkit
-• XSS Payload Generator
-• Web Fuzzer (Dir/Param)
-• BAC Detection Tool
-
-<span style="color:#f1c40f">[PENTESTING TOOLS]</span>
-• Subdomain Enumerator
-• Wordlist Generator
-• Reverse Shell Generator
-• Hash Cracker (MD5/SHA)
-• Custom C2 Script
-
-<span style="color:#e74c3c">[EXPLOIT DEV]</span>
-• Buffer Overflow Lab
-• Win Buffer Overflow Exploit
-• Linux Shellcode Injector
-• Custom Payload Encoder
-• ROP Chain Generator
-
-<span style="color:#3498db">[RED TEAM OPS]</span>
-• Full Attack Path Sim
-• Phishing Framework
-• BloodHound Mapping
-• Shadow Creds Automation
-• Kerberoasting Toolkit
-
-<span style="color:#9b59b6">[MALWARE DEV]</span>
-• Stealth Keylogger
-• Custom Backdoor + C2
-• Reverse TCP RAT
-• Persistence Builder
-• Process Injection Demo
-
-<span style="color:#795548">[OSINT]</span>
-• OSINT Framework
-• Social Media Scraper
-• Image Metadata Analyzer
-• Dox Detection Tool
-• Breach Lookup Engine
-
-<span style="color:#2ecc71">[CLOUD SECURITY]</span>
-• AWS Pentest Lab
-• S3 Bucket Scanner
-• IAM PrivEsc Mapper
-• Cloud Recon Tool
-• Azure Attack Path Vis
-
-<span style="color:#95a5a6">[CTF PROJECTS]</span>
-• CTF Writeups Collection
-• Custom Exploit Repo
-• PrivEsc Automator
-• Binary Exp Notes
-• HTB Path Summary
-
-<span style="color:#8e44ad">[DEEP LEARNING]</span>
-• AI Malware Classifier
-• LLM Injection Detector
-• AI Attack Sim
-• AI CTF Solver
-• Neurogrid AI Agent
-
-<span style="color:#d35400">[CAPSTONE]</span>
-• Custom OffSec OS
-• Red Team Framework
-• Personal C2 Infra
-• Pentest Report Gen
-`;
+        const ROADMAP = `<span style="color:var(--neon-color)">=== PROJECT ROADMAP [PLANNED] ===</span>...`;
 
         function printOutput(text, isHtml = false) {
-            const div = document.createElement('div');
-            div.className = 'output';
-            if (isHtml) div.innerHTML = text;
-            else div.innerText = text;
-            termOut.appendChild(div);
-            terminalBody.scrollTop = terminalBody.scrollHeight;
+            const div = document.createElement('div'); div.className = 'output';
+            if (isHtml) div.innerHTML = text; else div.innerText = text;
+            termOut.appendChild(div); terminalBody.scrollTop = terminalBody.scrollHeight;
         }
 
-        /* SIMULATED HACKING */
         async function runHackSimulation(target) {
-            const steps = [
-                `Resolving target ${target}...`,
-                `[+] Target found: 192.168.1.55`,
-                `Initiating port scan...`,
-                `[+] Open ports: 22, 80, 443, 3306`,
-                `Brute forcing SSH credentials...`,
-                `[!] Root password found: 'admin123'`,
-                `Establishing secure connection...`,
-                `[+] Access Granted.`,
-                `Downloading database... 100%`,
-                `Clearing logs...`
-            ];
-
-            for (const step of steps) {
-                printOutput(step);
-                await new Promise(r => setTimeout(r, Math.random() * 800 + 200));
-            }
-            printOutput(`<span style="color:var(--neon-color)">HACK COMPLETE. SYSTEM COMPROMISED.</span>`, true);
+            const steps = [`Resolving ${target}...`, "[+] Target found: 192.168.1.55", "Initiating scan...", "[+] Ports open: 22, 80, 443", "Accessing...", "[+] Access Granted.", "Clearing logs..."];
+            for (const step of steps) { printOutput(step); await new Promise(r => setTimeout(r, Math.random() * 500 + 200)); }
+            printOutput(`<span style="color:var(--neon-color)">HACK COMPLETE.</span>`, true);
         }
 
         function handleCommand(cmd) {
-            const cleanCmd = cmd.trim().toLowerCase();
-            const args = cleanCmd.split(' ');
-            const mainCmd = args[0];
-
+            const cleanCmd = cmd.trim(); if (!cleanCmd) return;
+            const args = cleanCmd.split(/\s+/), mainCmd = args[0].toLowerCase(), arg1 = args[1];
             switch (mainCmd) {
-                case 'help':
-                    printOutput(`AVAILABLE COMMANDS:
-  open [window]   : Open a window
-  close [window]  : Close a window
-  hack [target]   : Run simulation
-  theme [color]   : Switch theme
-  whoami          : User info
-  ls              : List files
-  cat [file]      : Read file content
-  clear           : Clear terminal
-  reboot          : System restart`);
+                case "help": printOutput("AVAILABLE: open, close, hack, theme, wallpaper, ls, cat, touch, rm, echo, clear, reboot, date"); break;
+                case "ls": printOutput(virtualFS.join("  ")); break;
+                case "cat": if (arg1 === "roadmap.txt") printOutput(ROADMAP, true); else if (arg1 === "about.txt") openWindow("about-window"); else if (virtualFS.includes(arg1)) printOutput(""); else printOutput(`cat: ${arg1}: No such file`); break;
+                case "touch": if (arg1) { if (!virtualFS.includes(arg1)) { virtualFS.push(arg1); printOutput(`Created ${arg1}`); renderExplorer(); } } break;
+                case "rm": if (arg1) { const idx = virtualFS.indexOf(arg1); if (idx > -1 && !arg1.endsWith("/")) { virtualFS.splice(idx, 1); printOutput(`Removed ${arg1}`); renderExplorer(); } } break;
+                case "echo": printOutput(args.slice(1).join(" ")); break;
+                case "pwd": printOutput("/home/root"); break;
+                case "hack": if (arg1) runHackSimulation(arg1); break;
+                case "open": if (arg1) { const winId = arg1 + "-window"; if (document.getElementById(winId)) openWindow(winId); } break;
+                case "close": if (arg1) closeWindow(arg1 + "-window"); break;
+                case "theme": if (['red', 'green', 'blue', 'purple', 'gold'].includes(arg1)) { document.body.setAttribute('data-theme', arg1); printOutput(`Theme: ${arg1}`); } break;
+                case "wallpaper":
+                    const canv = document.getElementById("matrix-canvas");
+                    if (arg1 === "matrix") canv.style.display = "block";
+                    else if (arg1 === "solid") { canv.style.display = "none"; document.body.style.background = "#050505"; }
+                    else if (arg1 === "none") { canv.style.display = "none"; document.body.style.background = "#000"; }
                     break;
-                
-                case 'ls':
-                    printOutput("about.txt  roadmap.txt  skills.bin  projects/  certs/  contact.exe");
-                    break;
-
-                case 'cat':
-                    if (args[1] === 'roadmap.txt') printOutput(ROADMAP, true);
-                    else if (args[1] === 'about.txt') openWindow('about-window');
-                    else if (args[1] === '.hidden_flag') printOutput("FLAG{Y0U_F0UND_M3}", true);
-                    else printOutput(`cat: ${args[1] || ''}: No such file or directory`);
-                    break;
-
-                case 'hack':
-                    if (args[1]) runHackSimulation(args[1]);
-                    else printOutput("Usage: hack <target>");
-                    break;
-                    
-                case 'open':
-                    if (args[1]) {
-                        const winId = args[1] + '-window';
-                        if (document.getElementById(winId)) {
-                            openWindow(winId);
-                            printOutput(`Opening ${args[1]}...`);
-                        } else printOutput(`Error: Window '${args[1]}' not found.`);
-                    } else printOutput("Usage: open [about|skills|projects|certs|ctf|contact]");
-                    break;
-
-                case 'close':
-                    if (args[1]) {
-                        closeWindow(args[1] + '-window');
-                        printOutput(`Closing ${args[1]}...`);
-                    }
-                    break;
-
-                case 'theme':
-                    if (['red', 'green', 'blue'].includes(args[1])) {
-                        document.body.setAttribute('data-theme', args[1]);
-                        printOutput(`Theme changed to ${args[1].toUpperCase()}`);
-                    } else printOutput("Usage: theme [red|green|blue]");
-                    break;
-
-                case 'whoami': printOutput("uid=0(root) gid=0(root) groups=0(root)"); break;
-                case 'date': printOutput(new Date().toString()); break;
-                case 'sudo': printOutput("User is already root."); break;
-                case 'clear': termOut.innerHTML = ''; break;
-                case 'reboot': sessionStorage.removeItem('harshith_os_booted'); location.reload(); break;
-                case '': break;
-                default: printOutput(`bash: ${mainCmd}: command not found`); playSound('error');
+                case "whoami": printOutput("root"); break;
+                case "date": printOutput(new Date().toString()); break;
+                case "clear": termOut.innerHTML = ""; break;
+                case "reboot": rebootSystem(); break;
+                default: printOutput(`bash: ${mainCmd}: command not found`); playSound("error");
             }
         }
 
-        // Terminal Inputs
         cmdInput.addEventListener('keydown', e => {
             if (e.key === 'Enter') {
                 const cmd = cmdInput.value;
                 if (cmd) {
-                    commandHistory.push(cmd);
-                    historyIndex = commandHistory.length;
+                    commandHistory.push(cmd); historyIndex = commandHistory.length;
                     printOutput(`root@harshith-os:~# ${cmd}`, true);
-                    handleCommand(cmd);
-                    cmdInput.value = '';
-                    playSound();
-                    // Auto-focus after command
+                    handleCommand(cmd); cmdInput.value = ''; playSound();
                     setTimeout(() => cmdInput.focus(), 50);
                 }
             } else if (e.key === 'ArrowUp') {
-                e.preventDefault();
-                if (historyIndex > 0) {
-                    historyIndex--;
-                    cmdInput.value = commandHistory[historyIndex];
-                }
+                if (historyIndex > 0) { historyIndex--; cmdInput.value = commandHistory[historyIndex]; }
             } else if (e.key === 'ArrowDown') {
-                e.preventDefault();
-                if (historyIndex < commandHistory.length - 1) {
-                    historyIndex++;
-                    cmdInput.value = commandHistory[historyIndex];
-                } else {
-                    historyIndex = commandHistory.length;
-                    cmdInput.value = '';
-                }
-            } else if (e.key === 'Tab') {
-                e.preventDefault();
+                if (historyIndex < commandHistory.length - 1) { historyIndex++; cmdInput.value = commandHistory[historyIndex]; }
+                else { historyIndex = commandHistory.length; cmdInput.value = ''; }
             }
-        });
-
-        /* --- KONAMI CODE --- */
-        let konamiCode = ['ArrowUp', 'ArrowUp', 'ArrowDown', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'ArrowLeft', 'ArrowRight', 'b', 'a'];
-        let konamiIndex = 0;
-        document.addEventListener('keydown', (e) => {
-            // Only trigger if not typing in terminal
-            if (document.activeElement === cmdInput) return;
-            if (e.key === konamiCode[konamiIndex]) {
-                konamiIndex++;
-                if (konamiIndex === konamiCode.length) {
-                    document.body.setAttribute('data-theme', 'green');
-                    printOutput("<span style='color:#0f0'> *** GOD MODE ENABLED *** </span>", true);
-                    konamiIndex = 0;
-                }
-            } else konamiIndex = 0;
         });
 
         /* --- INIT --- */
         runBootSequence();
         initMatrix();
-
-    </script>
+        initDraggableIcons();
+        updateClock();
+</script>
 </body>
 </html>
